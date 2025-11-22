@@ -15,39 +15,79 @@ WHERE r.latitude IS NOT NULL AND r.longitude IS NOT NULL")->fetchAll();
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
-        #map { height: 600px; margin-top:20px; border-radius:10px; }
+    #map {
+        height: 600px;
+        margin-top: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
 
-        /* Popup form styling */
-        .popup-form {
-            display: flex;
-            flex-direction: column;
-            width: 250px;
-        }
-        .popup-form input, .popup-form textarea, .popup-form button {
-            margin-bottom: 8px;
-            padding: 6px;
-            border-radius: 5px;
-            border: 1px solid #ccc;
-            font-size: 14px;
-            width: 100%;
-            box-sizing: border-box;
-        }
-        .popup-form textarea { resize: vertical; min-height: 50px; }
-        .popup-form button {
-            background-color: #3498db;
-            color: white;
-            border: none;
-            cursor: pointer;
-            font-weight: bold;
-        }
-        .popup-form button:hover {
-            background-color: #2980b9;
-        }
-    </style>
+    /* Popup Form Styling */
+    .popup-form {
+        display: flex;
+        flex-direction: column;
+        width: 260px;
+        font-family: Arial, sans-serif;
+    }
+
+    .popup-form select,
+    .popup-form input,
+    .popup-form textarea,
+    .popup-form button {
+        margin-bottom: 8px;
+        padding: 8px 10px;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+        font-size: 14px;
+        box-sizing: border-box;
+        transition: border-color 0.3s, box-shadow 0.3s;
+    }
+
+    .popup-form select:focus,
+    .popup-form input:focus,
+    .popup-form textarea:focus {
+        border-color: #3498db;
+        box-shadow: 0 0 5px rgba(52,152,219,0.5);
+        outline: none;
+    }
+
+    .popup-form textarea {
+        resize: vertical;
+        min-height: 60px;
+    }
+
+    .popup-form input[type="text"] {
+        font-size: 13px;
+    }
+
+    .popup-form button {
+        background-color: #3498db;
+        color: white;
+        border: none;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background-color 0.3s, transform 0.2s;
+    }
+
+    .popup-form button:hover {
+        background-color: #2980b9;
+        transform: scale(1.05);
+    }
+
+    /* Image preview inside popup */
+    .popup-form img {
+        max-width: 100%;
+        border-radius: 6px;
+        margin-top: 5px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+</style>
 </head>
 <body>
 <nav>
-    <a href="dashboard.php">Dashboard</a>
+    <?php if($_SESSION['role'] === 'admin'){?>
+        <a href="dashboard.php" class="active">Dashboard</a>
+    <?php }?>
     <a href="map.php">Map</a>
     <a href="profile.php">Profile</a>
     <?php if ($_SESSION['role'] === 'admin') echo '<a href="admin.php">Admin Panel</a>'; ?>
@@ -85,8 +125,15 @@ map.on('click', function(e){
 
     var popupContent = `
         <div class="popup-form">
-            <input type="text" id="title" placeholder="Problem Title" required>
+            <select id="type">
+                <option value="Pothole">Pothole</option>
+                <option value="Streetlight">Streetlight Issue</option>
+                <option value="Trash Overflow">Trash Overflow</option>
+                <option value="Road Blocked">Road Blocked</option>
+                <option value="Other">Other</option>
+            </select>
             <textarea id="description" placeholder="Describe the problem" required></textarea>
+            <input type="text" id="image" placeholder="Image URL (optional)">
             <button onclick="submitReport(${lat}, ${lng}, this)">Submit</button>
         </div>
     `;
@@ -99,22 +146,35 @@ map.on('click', function(e){
 
 // AJAX submission
 function submitReport(lat, lng, btn){
-    var title = btn.parentNode.querySelector('#title').value;
+    var type = btn.parentNode.querySelector('#type').value;
     var desc = btn.parentNode.querySelector('#description').value;
-    if(title.trim()==='' || desc.trim()===''){ alert('Fill all fields'); return; }
+    var image = btn.parentNode.querySelector('#image').value;
 
-    $.post('submit_report.php', {title:title, description:desc, latitude:lat, longitude:lng}, function(res){
+    if(desc.trim()===''){ alert('Description is required'); return; }
+
+    $.post('submit_report.php', {
+        title: type,
+        type: type,
+        description: desc,
+        latitude: lat,
+        longitude: lng,
+        image: image
+    }, function(res){
         alert(res.message);
         if(res.success){
-            // Add marker immediately
+            var popupHtml = `<b>${type}</b><br>${desc}<br>Status: pending<br>By: You`;
+            if(image) popupHtml += `<br><img src="${image}" alt="Report Image">`;
+
             L.marker([lat, lng],{
                 icon:L.icon({iconUrl:'https://cdn-icons-png.flaticon.com/512/565/565547.png', iconSize:[30,30]})
             }).addTo(map)
-            .bindPopup('<b>'+title+'</b><br>'+desc+'<br>Status: pending<br>By: You');
+            .bindPopup(popupHtml);
+
             map.closePopup();
         }
     }, 'json');
 }
+
 </script>
 </body>
 </html>

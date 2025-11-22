@@ -103,3 +103,44 @@ form button {
 form button:hover {
     background: #2980b9;
 }
+
+/* Reports table */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: Arial, sans-serif;
+    margin-top: 10px;
+}
+
+table th,
+table td {
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+    text-align: left;
+    vertical-align: middle;
+}
+
+table th {
+    background-color: #f2f2f2;
+    font-weight: bold;
+}
+
+table tr:hover {
+    background-color: #f9f9f9;
+}
+
+table img {
+    max-width: 100px;
+    border-radius: 5px;
+    object-fit: cover;
+}
+
+/* Status colors - using nth-child assuming 5th column is Status */
+table tr td:nth-child(5) {
+    font-weight: bold;
+}
+
+table tr td:nth-child(5):contains('pending') { color: orange; }
+table tr td:nth-child(5):contains('resolved') { color: green; }
+table tr td:nth-child(5):contains('rejected') { color: red; }
+

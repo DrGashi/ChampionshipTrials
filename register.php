@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
             $stmt = $conn->prepare("INSERT INTO users (username, password) VALUES (?, ?)");
             if ($stmt->execute([$username, $hashedPassword])) {
-                $message = "Registration successful! <a href='login.php'>Login here</a>";
+                header('Location: login.php');
             } else {
                 $message = "Error registering user.";
             }
