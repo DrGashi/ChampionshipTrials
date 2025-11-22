@@ -1,5 +1,10 @@
 <?php
 session_start();
+
+error_log("[v0] dashboard.php loaded - Session ID: " . session_id());
+error_log("[v0] Session user_id: " . ($_SESSION['user_id'] ?? 'not set'));
+error_log("[v0] Session data: " . print_r($_SESSION, true));
+
 require_once 'config/database.php';
 require_once 'includes/functions.php';
 

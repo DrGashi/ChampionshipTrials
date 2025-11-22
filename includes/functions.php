@@ -1,58 +1,86 @@
 <?php
 
+// Check if user is logged in
 function isLoggedIn() {
     return isset($_SESSION['user_id']);
 }
 
+// Check if user is admin
 function isAdmin() {
     return isset($_SESSION['is_admin']) && $_SESSION['is_admin'] == 1;
 }
 
+// Require user to be logged in
 function requireLogin() {
+    error_log("[v0] requireLogin called - Session user_id: " . ($_SESSION['user_id'] ?? 'not set'));
+    
+    if (!isLoggedIn()) {
+        error_log("[v0] User not logged in, redirecting to login.php");
+        header('Location: /login.php');
+        exit();
+    }
+}
+
+// Require user to be admin
+function requireAdmin() {
     if (!isLoggedIn()) {
         header('Location: login.php');
         exit();
     }
-}
-
-function requireAdmin() {
     if (!isAdmin()) {
-        header('Location: index.php');
+        header('Location: dashboard.php');
         exit();
     }
 }
 
+// Sanitize input/output
 function sanitize($data) {
-    return htmlspecialchars(strip_tags(trim($data)));
+    return htmlspecialchars(strip_tags(trim($data)), ENT_QUOTES, 'UTF-8');
 }
 
+// Clean output (alias for sanitize)
 function clean($data) {
     return sanitize($data);
 }
 
-function uploadImage($file) {
-    $target_dir = "uploads/";
-    if (!file_exists($target_dir)) {
-        mkdir($target_dir, 0777, true);
-    }
-    
-    $imageFileType = strtolower(pathinfo($file["name"], PATHINFO_EXTENSION));
-    $allowed = array('jpg', 'jpeg', 'png', 'gif');
-    
-    if (!in_array($imageFileType, $allowed)) {
+// Upload image file
+function uploadImage($file, $uploadDir = 'uploads/') {
+    if (!isset($file) || $file['error'] !== UPLOAD_ERR_OK) {
         return false;
     }
     
-    $filename = uniqid() . '.' . $imageFileType;
-    $target_file = $target_dir . $filename;
+    // Create uploads directory if it doesn't exist
+    if (!is_dir($uploadDir)) {
+        mkdir($uploadDir, 0777, true);
+    }
     
-    if (move_uploaded_file($file["tmp_name"], $target_file)) {
-        return $target_file;
+    // Validate file type
+    $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    $fileType = mime_content_type($file['tmp_name']);
+    
+    if (!in_array($fileType, $allowedTypes)) {
+        return false;
+    }
+    
+    // Validate file size (max 5MB)
+    if ($file['size'] > 5 * 1024 * 1024) {
+        return false;
+    }
+    
+    // Generate unique filename
+    $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+    $filename = uniqid() . '_' . time() . '.' . $extension;
+    $filepath = $uploadDir . $filename;
+    
+    // Move uploaded file
+    if (move_uploaded_file($file['tmp_name'], $filepath)) {
+        return $filepath;
     }
     
     return false;
 }
 
+// Get status badge HTML
 function getStatusBadge($status) {
     $badges = [
         'pending' => '<span class="badge bg-warning">Pending</span>',
