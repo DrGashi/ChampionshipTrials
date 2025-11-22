@@ -41,84 +41,32 @@ $categories = $conn->query("SELECT * FROM categories")->fetchAll();
             --primary-color: #667eea;
             --secondary-color: #764ba2;
         }
-        body {
-            background-color: #f8f9fa;
-        }
-        .navbar {
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .stat-card {
-            border: none;
-            border-radius: 15px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
-            transition: transform 0.3s;
-        }
-        .stat-card:hover {
-            transform: translateY(-5px);
-        }
-        .stat-icon {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-        }
-        #map {
-            height: 500px;
-            border-radius: 15px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
-        }
-        .badge {
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
-        }
-        .nav-tabs .nav-link.active {
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-            color: white !important;
-            border: none;
-        }
-        .nav-tabs .nav-link {
-            color: #666;
-            border: none;
-            margin-right: 10px;
-            border-radius: 10px;
-        }
-        .report-card {
-            border: none;
-            border-radius: 15px;
-            margin-bottom: 1rem;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            transition: all 0.3s;
-        }
-        .report-card:hover {
-            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
-        }
+        body { background-color: #f8f9fa; }
+        .navbar { background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .stat-card { border: none; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.08); transition: transform 0.3s; }
+        .stat-card:hover { transform: translateY(-5px); }
+        .stat-icon { width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+        #map, #submit-map { height: 500px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.08); }
+        .badge { padding: 0.5rem 1rem; border-radius: 20px; }
+        .nav-tabs .nav-link.active { background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); color: white !important; border: none; }
+        .nav-tabs .nav-link { color: #666; border: none; margin-right: 10px; border-radius: 10px; }
+        .report-card { border: none; border-radius: 15px; margin-bottom: 1rem; box-shadow: 0 2px 10px rgba(0,0,0,0.05); transition: all 0.3s; }
+        .report-card:hover { box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
     </style>
 </head>
 <body>
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container-fluid">
-            <a class="navbar-brand" href="dashboard.php">
-                <i class="fas fa-city"></i> CityCare
-            </a>
+            <a class="navbar-brand" href="dashboard.php"><i class="fas fa-city"></i> CityCare</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="dashboard.php"><i class="fas fa-home"></i> Dashboard</a>
-                    </li>
-                    <li class="nav-item">
-                        <span class="nav-link"><i class="fas fa-user"></i> <?php echo $_SESSION['full_name']; ?></span>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a>
-                    </li>
+                    <li class="nav-item"><a class="nav-link" href="dashboard.php"><i class="fas fa-home"></i> Dashboard</a></li>
+                    <li class="nav-item"><span class="nav-link"><i class="fas fa-user"></i> <?php echo $_SESSION['full_name']; ?></span></li>
+                    <li class="nav-item"><a class="nav-link" href="logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
                 </ul>
             </div>
         </div>
@@ -127,58 +75,26 @@ $categories = $conn->query("SELECT * FROM categories")->fetchAll();
     <div class="container mt-4">
         <!-- Statistics Cards -->
         <div class="row mb-4">
+            <?php 
+            $stat_labels = ['Total Reports','Pending','In Progress','Resolved'];
+            $stat_icons = ['fa-clipboard-list','fa-clock','fa-spinner','fa-check-circle'];
+            $stat_colors = ['bg-primary','bg-warning','bg-info','bg-success'];
+            $stat_values = [$stats['total_reports'],$stats['pending'],$stats['in_progress'],$stats['resolved']];
+            for($i=0;$i<4;$i++): ?>
             <div class="col-md-3">
                 <div class="card stat-card">
                     <div class="card-body d-flex align-items-center">
-                        <div class="stat-icon bg-primary text-white me-3">
-                            <i class="fas fa-clipboard-list"></i>
+                        <div class="stat-icon <?php echo $stat_colors[$i]; ?> text-white me-3">
+                            <i class="fas <?php echo $stat_icons[$i]; ?>"></i>
                         </div>
                         <div>
-                            <h6 class="text-muted mb-0">Total Reports</h6>
-                            <h3 class="mb-0"><?php echo $stats['total_reports']; ?></h3>
+                            <h6 class="text-muted mb-0"><?php echo $stat_labels[$i]; ?></h6>
+                            <h3 class="mb-0"><?php echo $stat_values[$i]; ?></h3>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card stat-card">
-                    <div class="card-body d-flex align-items-center">
-                        <div class="stat-icon bg-warning text-white me-3">
-                            <i class="fas fa-clock"></i>
-                        </div>
-                        <div>
-                            <h6 class="text-muted mb-0">Pending</h6>
-                            <h3 class="mb-0"><?php echo $stats['pending']; ?></h3>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card stat-card">
-                    <div class="card-body d-flex align-items-center">
-                        <div class="stat-icon bg-info text-white me-3">
-                            <i class="fas fa-spinner"></i>
-                        </div>
-                        <div>
-                            <h6 class="text-muted mb-0">In Progress</h6>
-                            <h3 class="mb-0"><?php echo $stats['in_progress']; ?></h3>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card stat-card">
-                    <div class="card-body d-flex align-items-center">
-                        <div class="stat-icon bg-success text-white me-3">
-                            <i class="fas fa-check-circle"></i>
-                        </div>
-                        <div>
-                            <h6 class="text-muted mb-0">Resolved</h6>
-                            <h3 class="mb-0"><?php echo $stats['resolved']; ?></h3>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <?php endfor; ?>
         </div>
 
         <!-- Tabs Section -->
@@ -225,18 +141,14 @@ $categories = $conn->query("SELECT * FROM categories")->fetchAll();
                                                     <span style="font-size: 1.5rem;"><?php echo $report['category_icon']; ?></span>
                                                     <?php echo htmlspecialchars($report['title']); ?>
                                                 </h5>
-                                                <p class="text-muted mb-2">
-                                                    <i class="fas fa-map-marker-alt"></i> <?php echo htmlspecialchars($report['location_address']); ?>
-                                                </p>
+                                                <p class="text-muted mb-2"><i class="fas fa-map-marker-alt"></i> <?php echo htmlspecialchars($report['location_address']); ?></p>
                                                 <p class="card-text"><?php echo htmlspecialchars(substr($report['description'], 0, 150)); ?>...</p>
                                                 <div class="mb-2">
                                                     <?php echo getStatusBadge($report['status']); ?>
                                                     <?php echo getPriorityBadge($report['priority']); ?>
                                                     <span class="badge bg-secondary"><?php echo $report['category_name']; ?></span>
                                                 </div>
-                                                <small class="text-muted">
-                                                    <i class="fas fa-calendar"></i> <?php echo date('M d, Y', strtotime($report['created_at'])); ?>
-                                                </small>
+                                                <small class="text-muted"><i class="fas fa-calendar"></i> <?php echo date('M d, Y', strtotime($report['created_at'])); ?></small>
                                             </div>
                                             <div class="col-md-4 text-end">
                                                 <?php if ($report['image_path']): ?>
@@ -267,9 +179,7 @@ $categories = $conn->query("SELECT * FROM categories")->fetchAll();
                                         <select name="category_id" class="form-control" required>
                                             <option value="">Select Category</option>
                                             <?php foreach ($categories as $cat): ?>
-                                                <option value="<?php echo $cat['id']; ?>">
-                                                    <?php echo $cat['icon'] . ' ' . $cat['name']; ?>
-                                                </option>
+                                                <option value="<?php echo $cat['id']; ?>"><?php echo $cat['icon'] . ' ' . $cat['name']; ?></option>
                                             <?php endforeach; ?>
                                         </select>
                                     </div>
@@ -328,7 +238,6 @@ $categories = $conn->query("SELECT * FROM categories")->fetchAll();
     <script>
         // Initialize main map
         var map = L.map('map').setView([42.657362, 21.156723], 12);
-        
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
@@ -346,24 +255,23 @@ $categories = $conn->query("SELECT * FROM categories")->fetchAll();
 
         // Initialize submit map
         var submitMap = L.map('submit-map').setView([42.657362, 21.156723], 10);
-        
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors'
         }).addTo(submitMap);
 
         var marker;
         submitMap.on('click', function(e) {
-            if (marker) {
-                submitMap.removeLayer(marker);
-            }
-            
+            if (marker) submitMap.removeLayer(marker);
             marker = L.marker(e.latlng).addTo(submitMap);
             document.getElementById('latitude').value = e.latlng.lat;
             document.getElementById('longitude').value = e.latlng.lng;
-            
-            // Reverse geocoding (simplified - you can use a proper geocoding service)
-            document.getElementById('location_address').value = 
-                'Lat: ' + e.latlng.lat.toFixed(6) + ', Lng: ' + e.latlng.lng.toFixed(6);
+            document.getElementById('location_address').value = 'Lat: ' + e.latlng.lat.toFixed(6) + ', Lng: ' + e.latlng.lng.toFixed(6);
+        });
+
+        // Fix submit map size when tab is shown
+        var newTabEl = document.querySelector('button[data-bs-target="#new-pane"]');
+        newTabEl.addEventListener('shown.bs.tab', function () {
+            submitMap.invalidateSize();
         });
     </script>
 </body>

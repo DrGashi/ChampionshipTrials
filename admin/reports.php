@@ -448,7 +448,7 @@ $stats = [
                                     <small><?php echo date('M j, Y', strtotime($report['created_at'])); ?></small>
                                 </td>
                                 <td>
-                                    <a href="report.php?id=<?php echo $report['id']; ?>" class="btn btn-sm btn-primary action-btn">
+                                    <a href="view_report.php?id=<?php echo $report['id']; ?>" class="btn btn-sm btn-primary action-btn">
                                         <i class="bi bi-eye"></i> View
                                     </a>
                                 </td>

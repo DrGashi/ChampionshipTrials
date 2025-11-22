@@ -69,4 +69,6 @@ function getPriorityBadge($priority) {
     ];
     return $badges[$priority] ?? $priority;
 }
+
+
 ?>

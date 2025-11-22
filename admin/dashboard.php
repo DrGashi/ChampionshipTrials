@@ -320,7 +320,7 @@ $category_stats = $conn->query("SELECT c.name, c.icon, COUNT(r.id) as count
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         // Initialize admin map
-        var adminMap = L.map('admin-map').setView([42.657362, 21.156723], 12);
+        var adminMap = L.map('admin-map').setView([42.657362, 21.156723], 13);
         
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors'
@@ -343,7 +343,7 @@ $category_stats = $conn->query("SELECT c.name, c.icon, COUNT(r.id) as count
                 <span style="font-size: 1.2rem;"><?php echo $report['category_icon']; ?></span> 
                 <?php echo $report['category_name']; ?><br>
                 Status: <?php echo $report['status']; ?><br>
-                <a href="view_report.php?id=<?php echo $report['id']; ?>" class="btn btn-sm btn-primary mt-2">View Details</a>
+                <a href="view_report.php?id=<?php echo $report['id']; ?>" class="btn btn-sm btn-primary mt-2" style="color: white">View Details</a>
             `);
         <?php endforeach; ?>
     </script>
