@@ -1,31 +1,50 @@
 <?php
+session_start();
 require_once 'config/database.php';
 require_once 'includes/functions.php';
+
 requireLogin();
 
-$user_id = $_SESSION['user_id'];
+$userId = $_SESSION['user_id'];
 
-// Get user statistics
-$stmt = $conn->prepare("SELECT 
-    COUNT(*) as total_reports,
-    SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
-    SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress,
-    SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END) as resolved
-    FROM reports WHERE user_id = ?");
-$stmt->execute([$user_id]);
-$stats = $stmt->fetch();
+// Get user info
+$stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
+$stmt->execute([$userId]);
+$user = $stmt->fetch();
+
+$currentLevel = $user['level'];
+$currentXp = $user['xp'];
+$rankTitle = getRankTitle($currentLevel);
+$levelProgress = getLevelProgress($currentXp, $currentLevel);
+$xpToNextLevel = getXpToNextLevel($currentXp, $currentLevel);
+$xpForNextLevel = getXpForLevel($currentLevel);
+
+$userBadges = getUserBadges($conn, $userId);
+$badgeCount = count($userBadges);
+
+// Get categories
+$categories = getCategories($conn);
 
 // Get user's reports
-$stmt = $conn->prepare("SELECT r.*, c.name as category_name, c.icon as category_icon 
+$stmt = $conn->prepare("
+    SELECT r.*, c.name as category_name 
     FROM reports r 
     JOIN categories c ON r.category_id = c.id 
     WHERE r.user_id = ? 
-    ORDER BY r.created_at DESC");
-$stmt->execute([$user_id]);
-$user_reports = $stmt->fetchAll();
+    ORDER BY r.created_at DESC
+");
+$stmt->execute([$userId]);
+$userReports = $stmt->fetchAll();
 
-// Get all categories
-$categories = $conn->query("SELECT * FROM categories")->fetchAll();
+// Get all reports for map
+$stmt = $conn->query("
+    SELECT r.*, c.name as category_name, u.username 
+    FROM reports r 
+    JOIN categories c ON r.category_id = c.id 
+    JOIN users u ON r.user_id = u.id 
+    ORDER BY r.created_at DESC
+");
+$allReports = $stmt->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -34,199 +53,282 @@ $categories = $conn->query("SELECT * FROM categories")->fetchAll();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - CityCare</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        :root {
-            --primary-color: #667eea;
-            --secondary-color: #764ba2;
+        #map, #submitMap { height: 500px; border-radius: 8px; }
+        .tab-content { margin-top: 20px; }
+        .report-card { cursor: pointer; transition: transform 0.2s; }
+        .report-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .user-location-marker {
+            background: #007bff;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 3px solid white;
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
         }
-        body { background-color: #f8f9fa; }
-        .navbar { background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .stat-card { border: none; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.08); transition: transform 0.3s; }
-        .stat-card:hover { transform: translateY(-5px); }
-        .stat-icon { width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; }
-        #map, #submit-map { height: 500px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.08); }
-        .badge { padding: 0.5rem 1rem; border-radius: 20px; }
-        .nav-tabs .nav-link.active { background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); color: white !important; border: none; }
-        .nav-tabs .nav-link { color: #666; border: none; margin-right: 10px; border-radius: 10px; }
-        .report-card { border: none; border-radius: 15px; margin-bottom: 1rem; box-shadow: 0 2px 10px rgba(0,0,0,0.05); transition: all 0.3s; }
-        .report-card:hover { box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
     </style>
 </head>
-<body>
-    <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark">
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container-fluid">
-            <a class="navbar-brand" href="dashboard.php"><i class="fas fa-city"></i> CityCare</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item"><a class="nav-link" href="dashboard.php"><i class="fas fa-home"></i> Dashboard</a></li>
-                    <li class="nav-item"><span class="nav-link"><i class="fas fa-user"></i> <?php echo $_SESSION['full_name']; ?></span></li>
-                    <li class="nav-item"><a class="nav-link" href="logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
-                </ul>
+            <a class="navbar-brand" href="dashboard.php"><i class="bi bi-shield-check"></i> CityCare</a>
+            <div class="d-flex align-items-center">
+                <span class="text-white me-3">
+                    <i class="bi bi-person-circle"></i> <?= clean($user['username']) ?>
+                    <span class="badge bg-warning text-dark ms-2">Lv.<?= $currentLevel ?></span>
+                </span>
+                <a href="logout.php" class="btn btn-light btn-sm">Logout</a>
             </div>
         </div>
     </nav>
 
     <div class="container mt-4">
-        <!-- Statistics Cards -->
-        <div class="row mb-4">
-            <?php 
-            $stat_labels = ['Total Reports','Pending','In Progress','Resolved'];
-            $stat_icons = ['fa-clipboard-list','fa-clock','fa-spinner','fa-check-circle'];
-            $stat_colors = ['bg-primary','bg-warning','bg-info','bg-success'];
-            $stat_values = [$stats['total_reports'],$stats['pending'],$stats['in_progress'],$stats['resolved']];
-            for($i=0;$i<4;$i++): ?>
-            <div class="col-md-3">
-                <div class="card stat-card">
-                    <div class="card-body d-flex align-items-center">
-                        <div class="stat-icon <?php echo $stat_colors[$i]; ?> text-white me-3">
-                            <i class="fas <?php echo $stat_icons[$i]; ?>"></i>
+        <!-- Added XP progress card -->
+        <div class="card shadow-sm mb-3" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h5 class="mb-1"><i class="bi bi-trophy-fill"></i> <?= clean($user['username']) ?> - <?= $rankTitle ?></h5>
+                        <p class="mb-2">Level <?= $currentLevel ?> • <?= number_format($currentXp) ?> Total XP</p>
+                        <div class="progress" style="height: 25px; background: rgba(255,255,255,0.3);">
+                            <div class="progress-bar bg-warning" role="progressbar" 
+                                 style="width: <?= $levelProgress ?>%;" 
+                                 aria-valuenow="<?= $levelProgress ?>" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="100">
+                                <?= round($levelProgress) ?>%
+                            </div>
                         </div>
-                        <div>
-                            <h6 class="text-muted mb-0"><?php echo $stat_labels[$i]; ?></h6>
-                            <h3 class="mb-0"><?php echo $stat_values[$i]; ?></h3>
+                        <small><?= number_format($xpToNextLevel) ?> XP until Level <?= $currentLevel + 1 ?></small>
+                    </div>
+                    <div class="col-md-4 text-center">
+                        <div style="font-size: 3rem;">
+                            <?php if ($currentLevel >= 30): ?>
+                                🏆
+                            <?php elseif ($currentLevel >= 20): ?>
+                                🥇
+                            <?php elseif ($currentLevel >= 10): ?>
+                                🥈
+                            <?php elseif ($currentLevel >= 5): ?>
+                                🥉
+                            <?php else: ?>
+                                ⭐
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
             </div>
-            <?php endfor; ?>
         </div>
 
-        <!-- Tabs Section -->
-        <div class="card border-0 shadow-sm">
-            <div class="card-body">
-                <ul class="nav nav-tabs" id="myTab" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="map-tab" data-bs-toggle="tab" data-bs-target="#map-pane" type="button">
-                            <i class="fas fa-map-marked-alt"></i> Map View
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="reports-tab" data-bs-toggle="tab" data-bs-target="#reports-pane" type="button">
-                            <i class="fas fa-list"></i> My Reports
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="new-tab" data-bs-toggle="tab" data-bs-target="#new-pane" type="button">
-                            <i class="fas fa-plus-circle"></i> Submit Report
-                        </button>
-                    </li>
-                </ul>
+        <?php if (isset($_SESSION['success'])): ?>
+            <div class="alert alert-success alert-dismissible fade show">
+                <?= $_SESSION['success'] ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            <?php unset($_SESSION['success']); ?>
+        <?php endif; ?>
 
-                <div class="tab-content mt-4" id="myTabContent">
-                    <!-- Map Tab -->
-                    <div class="tab-pane fade show active" id="map-pane">
+        <?php if (isset($_SESSION['error'])): ?>
+            <div class="alert alert-danger alert-dismissible fade show">
+                <?= $_SESSION['error'] ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            <?php unset($_SESSION['error']); ?>
+        <?php endif; ?>
+
+        <ul class="nav nav-tabs" role="tablist">
+            <li class="nav-item">
+                <a class="nav-link active" data-bs-toggle="tab" href="#map-tab"><i class="bi bi-map"></i> Map</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="tab" href="#reports-tab"><i class="bi bi-list-ul"></i> My Reports</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="tab" href="#submit-tab"><i class="bi bi-plus-circle"></i> Submit Report</a>
+            </li>
+            <!-- Added badges tab -->
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="tab" href="#badges-tab">
+                    <i class="bi bi-award"></i> Badges 
+                    <span class="badge bg-primary"><?= $badgeCount ?></span>
+                </a>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+            <!-- Map Tab -->
+            <div id="map-tab" class="tab-pane fade show active">
+                <div class="card shadow-sm">
+                    <div class="card-body">
                         <div id="map"></div>
                     </div>
+                </div>
+            </div>
 
-                    <!-- My Reports Tab -->
-                    <div class="tab-pane fade" id="reports-pane">
-                        <h4 class="mb-4">My Submitted Reports</h4>
-                        <?php if (empty($user_reports)): ?>
-                            <div class="alert alert-info">
-                                <i class="fas fa-info-circle"></i> You haven't submitted any reports yet.
-                            </div>
+            <!-- Reports Tab -->
+            <div id="reports-tab" class="tab-pane fade">
+                <div class="card shadow-sm">
+                    <div class="card-header">
+                        <h5 class="mb-0">My Reports (<?= count($userReports) ?>)</h5>
+                    </div>
+                    <div class="card-body">
+                        <?php if (empty($userReports)): ?>
+                            <p class="text-muted">You haven't submitted any reports yet.</p>
                         <?php else: ?>
-                            <?php foreach ($user_reports as $report): ?>
-                                <div class="report-card card">
-                                    <div class="card-body">
-                                        <div class="row">
-                                            <div class="col-md-8">
-                                                <h5 class="card-title">
-                                                    <span style="font-size: 1.5rem;"><?php echo $report['category_icon']; ?></span>
-                                                    <?php echo htmlspecialchars($report['title']); ?>
-                                                </h5>
-                                                <p class="text-muted mb-2"><i class="fas fa-map-marker-alt"></i> <?php echo htmlspecialchars($report['location_address']); ?></p>
-                                                <p class="card-text"><?php echo htmlspecialchars(substr($report['description'], 0, 150)); ?>...</p>
-                                                <div class="mb-2">
-                                                    <?php echo getStatusBadge($report['status']); ?>
-                                                    <?php echo getPriorityBadge($report['priority']); ?>
-                                                    <span class="badge bg-secondary"><?php echo $report['category_name']; ?></span>
+                            <div class="row">
+                                <?php foreach ($userReports as $report): ?>
+                                    <div class="col-md-6 mb-3">
+                                        <div class="card report-card" onclick="window.location.href='report.php?id=<?= $report['id'] ?>'">
+                                            <div class="card-body">
+                                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                                    <h6 class="mb-0"><?= clean($report['title']) ?></h6>
+                                                    <span class="badge bg-<?= getStatusClass($report['status']) ?>"><?= ucfirst(str_replace('_', ' ', $report['status'])) ?></span>
                                                 </div>
-                                                <small class="text-muted"><i class="fas fa-calendar"></i> <?php echo date('M d, Y', strtotime($report['created_at'])); ?></small>
-                                            </div>
-                                            <div class="col-md-4 text-end">
-                                                <?php if ($report['image_path']): ?>
-                                                    <img src="<?php echo $report['image_path']; ?>" class="img-fluid rounded" style="max-height: 150px;">
-                                                <?php endif; ?>
+                                                <p class="text-muted small mb-2"><?= clean($report['category_name']) ?> • <?= formatDate($report['created_at']) ?></p>
+                                                <p class="mb-0 small"><?= substr(clean($report['description']), 0, 100) ?>...</p>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                            <?php endforeach; ?>
+                                <?php endforeach; ?>
+                            </div>
                         <?php endif; ?>
                     </div>
+                </div>
+            </div>
 
-                    <!-- Submit Report Tab -->
-                    <div class="tab-pane fade" id="new-pane">
-                        <h4 class="mb-4">Submit New Report</h4>
+            <!-- Submit Report Tab -->
+            <div id="submit-tab" class="tab-pane fade">
+                <div class="card shadow-sm">
+                    <div class="card-header">
+                        <h5 class="mb-0">Submit New Report</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Added interactive map for location selection -->
+                        <div class="mb-3">
+                            <label class="form-label">Select Location on Map</label>
+                            <div id="submitMap" style="height: 300px; border-radius: 8px; margin-bottom: 10px;"></div>
+                            <small class="text-muted">Click on the map to set the report location</small>
+                        </div>
+                        
                         <form action="submit_report.php" method="POST" enctype="multipart/form-data">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">Title</label>
-                                        <input type="text" name="title" class="form-control" required>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">Category</label>
-                                        <select name="category_id" class="form-control" required>
-                                            <option value="">Select Category</option>
-                                            <?php foreach ($categories as $cat): ?>
-                                                <option value="<?php echo $cat['id']; ?>"><?php echo $cat['icon'] . ' ' . $cat['name']; ?></option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                    </div>
-                                </div>
+                            <div class="mb-3">
+                                <label class="form-label">Category</label>
+                                <select name="category_id" class="form-select" required>
+                                    <option value="">Select a category</option>
+                                    <?php foreach ($categories as $category): ?>
+                                        <option value="<?= $category['id'] ?>"><?= clean($category['name']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
                             </div>
-                            
+                            <div class="mb-3">
+                                <label class="form-label">Title</label>
+                                <input type="text" name="title" class="form-control" required>
+                            </div>
                             <div class="mb-3">
                                 <label class="form-label">Description</label>
                                 <textarea name="description" class="form-control" rows="4" required></textarea>
                             </div>
-                            
                             <div class="mb-3">
                                 <label class="form-label">Location Address</label>
-                                <input type="text" name="location_address" id="location_address" class="form-control" required>
-                                <small class="text-muted">Click on the map below to select location</small>
+                                <input type="text" name="location" class="form-control" required placeholder="e.g., 123 Main St, New York, NY">
                             </div>
-                            
+                            <!-- Made latitude/longitude readonly since they're set by map click -->
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Latitude</label>
+                                    <input type="text" name="latitude" id="latitude" class="form-control" step="any" readonly required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Longitude</label>
+                                    <input type="text" name="longitude" id="longitude" class="form-control" step="any" readonly required>
+                                </div>
+                            </div>
                             <div class="mb-3">
-                                <div id="submit-map" style="height: 300px; border-radius: 10px;"></div>
-                                <input type="hidden" name="latitude" id="latitude" required>
-                                <input type="hidden" name="longitude" id="longitude" required>
+                                <label class="form-label">Priority</label>
+                                <select name="priority" class="form-select">
+                                    <option value="low">Low</option>
+                                    <option value="medium" selected>Medium</option>
+                                    <option value="high">High</option>
+                                    <option value="urgent">Urgent</option>
+                                </select>
                             </div>
-                            
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">Priority</label>
-                                        <select name="priority" class="form-control" required>
-                                            <option value="low">Low</option>
-                                            <option value="medium" selected>Medium</option>
-                                            <option value="high">High</option>
-                                            <option value="urgent">Urgent</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">Upload Image (optional)</label>
-                                        <input type="file" name="image" class="form-control" accept="image/*">
-                                    </div>
-                                </div>
+                            <div class="mb-3">
+                                <label class="form-label">Upload Image (Optional)</label>
+                                <input type="file" name="image" class="form-control" accept="image/*">
                             </div>
-                            
-                            <button type="submit" class="btn btn-primary btn-lg">
-                                <i class="fas fa-paper-plane"></i> Submit Report
-                            </button>
+                            <button type="submit" class="btn btn-primary"><i class="bi bi-send"></i> Submit Report</button>
                         </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Added Badges Tab -->
+            <div id="badges-tab" class="tab-pane fade">
+                <div class="card shadow-sm">
+                    <div class="card-header">
+                        <h5 class="mb-0">Your Badges (<?= $badgeCount ?>)</h5>
+                    </div>
+                    <div class="card-body">
+                        <?php if (empty($userBadges)): ?>
+                            <div class="text-center py-5">
+                                <div style="font-size: 4rem; opacity: 0.3;">🏆</div>
+                                <p class="text-muted">You haven't earned any badges yet.</p>
+                                <p class="text-muted small">Submit reports, maintain streaks, and level up to earn badges!</p>
+                            </div>
+                        <?php else: ?>
+                            <div class="row">
+                                <?php foreach ($userBadges as $badge): ?>
+                                    <div class="col-md-4 col-lg-3 mb-3">
+                                        <div class="card h-100 text-center border-primary">
+                                            <div class="card-body">
+                                                <div style="font-size: 3rem;"><?= $badge['icon'] ?></div>
+                                                <h6 class="mt-2 mb-1"><?= clean($badge['name']) ?></h6>
+                                                <p class="small text-muted mb-2"><?= clean($badge['description']) ?></p>
+                                                <small class="text-muted">Earned: <?= date('M d, Y', strtotime($badge['earned_at'])) ?></small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                        
+                        <!-- Badge Progress Section -->
+                        <hr class="my-4">
+                        <h6 class="mb-3">Badge Progress</h6>
+                        <?php
+                        // Get all badges to show progress
+                        $allBadges = $conn->query("SELECT * FROM badges ORDER BY badge_type, requirement_value")->fetchAll();
+                        $earnedBadgeIds = array_column($userBadges, 'id');
+                        
+                        // Group by type
+                        $badgesByType = [];
+                        foreach ($allBadges as $badge) {
+                            if (!in_array($badge['id'], $earnedBadgeIds)) {
+                                $badgesByType[$badge['badge_type']][] = $badge;
+                            }
+                        }
+                        ?>
+                        
+                        <div class="row">
+                            <?php foreach ($badgesByType as $type => $badges): ?>
+                                <?php if (count($badges) > 0 && count($badges) <= 5): // Only show types with few remaining ?>
+                                    <?php foreach ($badges as $badge): ?>
+                                        <div class="col-md-4 col-lg-3 mb-3">
+                                            <div class="card h-100 text-center" style="opacity: 0.6;">
+                                                <div class="card-body">
+                                                    <div style="font-size: 2.5rem; filter: grayscale(100%);"><?= $badge['icon'] ?></div>
+                                                    <h6 class="mt-2 mb-1 small"><?= clean($badge['name']) ?></h6>
+                                                    <p class="small text-muted mb-0"><?= clean($badge['description']) ?></p>
+                                                    <small class="badge bg-secondary mt-2">Locked</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -236,42 +338,108 @@ $categories = $conn->query("SELECT * FROM categories")->fetchAll();
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // Initialize main map
-        var map = L.map('map').setView([42.657362, 21.156723], 12);
+        // Initialize map
+        const map = L.map('map');
+        
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    const userLat = position.coords.latitude;
+                    const userLng = position.coords.longitude;
+                    map.setView([userLat, userLng], 13);
+                    
+                    L.marker([userLat, userLng], {
+                        icon: L.divIcon({
+                            className: 'user-location-marker',
+                            html: '<div style="background: #007bff; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.3);"></div>',
+                            iconSize: [16, 16]
+                        })
+                    }).addTo(map).bindPopup('Your Location');
+                },
+                function(error) {
+                    map.setView([40.7128, -74.0060], 13);
+                }
+            );
+        } else {
+            map.setView([40.7128, -74.0060], 13);
+        }
+        
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
 
-        // Add markers for user's reports
-        <?php foreach ($user_reports as $report): ?>
-        L.marker([<?php echo $report['latitude']; ?>, <?php echo $report['longitude']; ?>])
-            .addTo(map)
-            .bindPopup(`
-                <strong><?php echo htmlspecialchars($report['title']); ?></strong><br>
-                <?php echo htmlspecialchars($report['location_address']); ?><br>
-                Status: <?php echo $report['status']; ?>
-            `);
-        <?php endforeach; ?>
-
-        // Initialize submit map
-        var submitMap = L.map('submit-map').setView([42.657362, 21.156723], 10);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(submitMap);
-
-        var marker;
-        submitMap.on('click', function(e) {
-            if (marker) submitMap.removeLayer(marker);
-            marker = L.marker(e.latlng).addTo(submitMap);
-            document.getElementById('latitude').value = e.latlng.lat;
-            document.getElementById('longitude').value = e.latlng.lng;
-            document.getElementById('location_address').value = 'Lat: ' + e.latlng.lat.toFixed(6) + ', Lng: ' + e.latlng.lng.toFixed(6);
+        // Add markers for all reports
+        const reports = <?= json_encode($allReports) ?>;
+        reports.forEach(report => {
+            if (report.latitude && report.longitude) {
+                const marker = L.marker([report.latitude, report.longitude]).addTo(map);
+                marker.bindPopup(`
+                    <strong>${report.title}</strong><br>
+                    <em>${report.category_name}</em><br>
+                    Status: ${report.status}<br>
+                    <a href="report.php?id=${report.id}">View Details</a>
+                `);
+            }
         });
 
-        // Fix submit map size when tab is shown
-        var newTabEl = document.querySelector('button[data-bs-target="#new-pane"]');
-        newTabEl.addEventListener('shown.bs.tab', function () {
-            submitMap.invalidateSize();
+        let submitMap;
+        let submitMarker;
+        
+        // Initialize submit map when tab is shown
+        document.querySelector('a[href="#submit-tab"]').addEventListener('shown.bs.tab', function() {
+            if (!submitMap) {
+                submitMap = L.map('submitMap');
+                
+                // Use geolocation or default
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        function(position) {
+                            submitMap.setView([position.coords.latitude, position.coords.longitude], 15);
+                        },
+                        function(error) {
+                            submitMap.setView([40.7128, -74.0060], 13);
+                        }
+                    );
+                } else {
+                    submitMap.setView([40.7128, -74.0060], 13);
+                }
+                
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(submitMap);
+                
+                // Add click event to set location
+                submitMap.on('click', function(e) {
+                    const lat = e.latlng.lat.toFixed(6);
+                    const lng = e.latlng.lng.toFixed(6);
+                    
+                    // Update form fields
+                    document.getElementById('latitude').value = lat;
+                    document.getElementById('longitude').value = lng;
+                    
+                    // Remove old marker if exists
+                    if (submitMarker) {
+                        submitMap.removeLayer(submitMarker);
+                    }
+                    
+                    // Add new marker
+                    submitMarker = L.marker([lat, lng], {
+                        icon: L.icon({
+                            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+                            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                            iconSize: [25, 41],
+                            iconAnchor: [12, 41],
+                            popupAnchor: [1, -34],
+                            shadowSize: [41, 41]
+                        })
+                    }).addTo(submitMap);
+                    
+                    submitMarker.bindPopup(`<strong>Report Location</strong><br>Lat: ${lat}, Lng: ${lng}`).openPopup();
+                });
+                
+                // Fix map display issue
+                setTimeout(() => submitMap.invalidateSize(), 100);
+            }
         });
     </script>
 </body>

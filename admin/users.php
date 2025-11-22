@@ -28,12 +28,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Get all users
-$stmt = $conn->query("SELECT u.*, COUNT(r.id) as report_count 
-                      FROM users u 
-                      LEFT JOIN reports r ON u.id = r.user_id 
-                      GROUP BY u.id 
-                      ORDER BY u.created_at DESC");
+// Get all users with their stats
+$stmt = $conn->query("
+    SELECT u.*, 
+           COUNT(DISTINCT r.id) as report_count,
+           COUNT(DISTINCT ub.id) as badge_count
+    FROM users u 
+    LEFT JOIN reports r ON u.id = r.user_id 
+    LEFT JOIN user_badges ub ON u.id = ub.user_id
+    GROUP BY u.id 
+    ORDER BY u.created_at DESC
+");
 $users = $stmt->fetchAll();
 ?>
 
@@ -94,6 +99,11 @@ $users = $stmt->fetchAll();
                                 <th>Email</th>
                                 <th>Full Name</th>
                                 <th>Role</th>
+                                <!-- Added Level, XP, Badges, and Streak columns -->
+                                <th>Level</th>
+                                <th>XP</th>
+                                <th>Badges</th>
+                                <th>Streak</th>
                                 <th>Reports</th>
                                 <th>Joined</th>
                                 <th>Actions</th>
@@ -111,6 +121,17 @@ $users = $stmt->fetchAll();
                                         <span class="badge badge-admin">Admin</span>
                                     <?php else: ?>
                                         <span class="badge bg-secondary">User</span>
+                                    <?php endif; ?>
+                                </td>
+                                <!-- Display level, XP, badges, and streak -->
+                                <td><span class="badge bg-warning text-dark">Lv.<?= $user['level'] ?></span></td>
+                                <td><?= number_format($user['xp']) ?></td>
+                                <td><span class="badge bg-primary"><?= $user['badge_count'] ?></span></td>
+                                <td>
+                                    <?php if ($user['report_streak'] > 0): ?>
+                                        <span class="badge bg-danger"><?= $user['report_streak'] ?> 🔥</span>
+                                    <?php else: ?>
+                                        <span class="text-muted">-</span>
                                     <?php endif; ?>
                                 </td>
                                 <td><span class="badge bg-info"><?= $user['report_count'] ?></span></td>
