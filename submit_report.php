@@ -1,27 +1,31 @@
 <?php
-session_start();
-header('Content-Type: application/json');
-if(!isset($_SESSION['user_id'])){
-    echo json_encode(['success'=>false,'message'=>'Not logged in']); 
-    exit; 
+require_once 'config/database.php';
+require_once 'includes/functions.php';
+requireLogin();
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $user_id = $_SESSION['user_id'];
+    $title = sanitize($_POST['title']);
+    $description = sanitize($_POST['description']);
+    $category_id = (int)$_POST['category_id'];
+    $location_address = sanitize($_POST['location_address']);
+    $latitude = (float)$_POST['latitude'];
+    $longitude = (float)$_POST['longitude'];
+    $priority = sanitize($_POST['priority']);
+    
+    $image_path = null;
+    if (isset($_FILES['image']) && $_FILES['image']['error'] == 0) {
+        $image_path = uploadImage($_FILES['image']);
+    }
+    
+    $stmt = $conn->prepare("INSERT INTO reports (user_id, category_id, title, description, location_address, latitude, longitude, image_path, priority) 
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    
+    if ($stmt->execute([$user_id, $category_id, $title, $description, $location_address, $latitude, $longitude, $image_path, $priority])) {
+        header('Location: dashboard.php?success=1');
+    } else {
+        header('Location: dashboard.php?error=1');
+    }
+    exit();
 }
-require 'db.php';
-
-$title = $_POST['title'] ?? '';
-$type = $_POST['type'] ?? 'General';
-$description = $_POST['description'] ?? '';
-$latitude = $_POST['latitude'] ?? null;
-$longitude = $_POST['longitude'] ?? null;
-$image = $_POST['image'] ?? null;
-
-if(empty(type)) $type = 'General';
-
-if(empty($description)){
-    echo json_encode(['success'=>false,'message'=>'Description required']); 
-    exit;
-}
-
-$stmt = $conn->prepare("INSERT INTO reports (user_id, title, type, description, latitude, longitude, image) VALUES (?,?,?,?,?,?,?)");
-$stmt->execute([$_SESSION['user_id'], $title, $type, $description, $latitude, $longitude, $image]);
-
-echo json_encode(['success'=>true,'message'=>'Report submitted successfully!']);
+?>
