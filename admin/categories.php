@@ -106,8 +106,8 @@ $categories = $stmt->fetchAll();
                                 <input type="text" name="category_name" class="form-control" required>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">Description</label>
-                                <textarea name="description" class="form-control" rows="3"></textarea>
+                                <label class="form-label">Category Icon</label>
+                                <input type="text" name="icon" class="form-control" required>
                             </div>
                             <button type="submit" class="btn btn-primary w-100">
                                 <i class="fas fa-plus"></i> Add Category
