@@ -14,26 +14,6 @@ if (!$report_id) {
     header('Location: dashboard.php');
     exit();
 }
-
-// Handle status update
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
-    $new_status = $_POST['status'];
-    $admin_notes = $_POST['admin_notes'];
-    
-    $stmt = $conn->prepare("UPDATE reports SET status = ?, admin_notes = ?, updated_at = NOW() WHERE id = ?");
-    $stmt->execute([$new_status, $admin_notes, $report_id]);
-    
-    $success = "Report updated successfully!";
-}
-
-// Handle report deletion
-if (isset($_POST['delete_report'])) {
-    $stmt = $conn->prepare("DELETE FROM reports WHERE id = ?");
-    $stmt->execute([$report_id]);
-    header('Location: dashboard.php?deleted=1');
-    exit();
-}
-
 // Fetch report details
 $stmt = $conn->prepare("
     SELECT r.*, u.username, u.email, c.name as category_name 
@@ -44,6 +24,36 @@ $stmt = $conn->prepare("
 ");
 $stmt->execute([$report_id]);
 $report = $stmt->fetch(PDO::FETCH_ASSOC);
+// Handle status update
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
+    $new_status = $_POST['status'];
+    $admin_notes = $_POST['admin_notes'];
+
+    // Update report status
+    $stmt = $conn->prepare("UPDATE reports SET status = ?, admin_notes = ?, updated_at = NOW() WHERE id = ?");
+    $stmt->execute([$new_status, $admin_notes, $report_id]);
+
+    // If report is rejected → deduct XP
+    if ($new_status === "rejected") {
+        $user_id = $report_id['user_id']; // user who submitted the report
+
+        $xp_stmt = $conn->prepare("UPDATE users SET xp = xp - 50 WHERE id = ?");
+        $xp_stmt->execute([$user_id]);
+    }
+
+    $success = "Report updated successfully!";
+}
+
+
+// Handle report deletion
+if (isset($_POST['delete_report'])) {
+    $stmt = $conn->prepare("DELETE FROM reports WHERE id = ?");
+    $stmt->execute([$report_id]);
+    header('Location: dashboard.php?deleted=1');
+    exit();
+}
+
+
 
 if (!$report) {
     header('Location: dashboard.php');
