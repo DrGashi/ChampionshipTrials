@@ -12,11 +12,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action'])) {
         if ($_POST['action'] === 'add_category') {
             $name = trim($_POST['category_name']);
-            $description = trim($_POST['description']);
+            $icon = trim($_POST['icon']);
             
             if (!empty($name)) {
-                $stmt = $conn->prepare("INSERT INTO categories (name, description) VALUES (?, ?)");
-                $stmt->execute([$name, $description]);
+                $stmt = $conn->prepare("INSERT INTO categories (name, icon) VALUES (?, ?)");
+                $stmt->execute([$name, $icon]);
                 $success = 'Category added successfully!';
             } else {
                 $error = 'Category name is required!';
