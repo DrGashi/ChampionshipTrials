@@ -336,15 +336,15 @@ $category_stats = $conn->query("SELECT c.name, c.icon, COUNT(r.id) as count
 
         // Add markers for all reports
         <?php foreach ($all_reports as $report): ?>
-        var marker = L.marker([<?php echo $report['latitude']; ?>, <?php echo $report['longitude']; ?>])
+            var marker = L.marker([<?php echo $report['latitude']; ?>, <?php echo $report['longitude']; ?>])
             .addTo(adminMap)
-            .bindPopup(`
-                <strong><?php echo htmlspecialchars($report['title']); ?></strong><br>
-                <span style="font-size: 1.2rem;"><?php echo $report['category_icon']; ?></span> 
-                <?php echo $report['category_name']; ?><br>
-                Status: <?php echo $report['status']; ?><br>
-                <a href="view_report.php?id=<?php echo $report['id']; ?>" class="btn btn-sm btn-primary mt-2" style="color: white">View Details</a>
-            `);
+                .bindPopup(`
+                    <strong><?php echo htmlspecialchars($report['title']); ?></strong><br>
+                    <span style="font-size: 1.2rem;"><?php echo $report['category_icon']; ?></span> 
+                    <?php echo $report['category_name']; ?><br>
+                    Status: <?php echo $report['status']; ?><br>
+                    <a href="view_report.php?id=<?php echo $report['id']; ?>" class="btn btn-sm btn-primary mt-2" style="color: white">View Details</a>
+                `);
         <?php endforeach; ?>
     </script>
 </body>

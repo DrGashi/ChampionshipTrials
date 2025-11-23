@@ -1,10 +1,4 @@
 <?php
-session_start();
-
-error_log("[v0] dashboard.php loaded - Session ID: " . session_id());
-error_log("[v0] Session user_id: " . ($_SESSION['user_id'] ?? 'not set'));
-error_log("[v0] Session data: " . print_r($_SESSION, true));
-
 require_once 'config/database.php';
 require_once 'includes/functions.php';
 
@@ -85,6 +79,7 @@ $allReports = $stmt->fetchAll();
                     <span class="badge bg-warning text-dark ms-2">Lv.<?= $currentLevel ?></span>
                 </span>
                 <a href="logout.php" class="btn btn-light btn-sm">Logout</a>
+                <a href="rewards.php" class="btn btn-dark btn-sm" style="margin: 0 10px">Rewards</a>
             </div>
         </div>
     </nav>
@@ -382,7 +377,6 @@ $allReports = $stmt->fetchAll();
                     <strong>${report.title}</strong><br>
                     <em>${report.category_name}</em><br>
                     Status: ${report.status}<br>
-                    <a href="report.php?id=${report.id}">View Details</a>
                 `);
             }
         });

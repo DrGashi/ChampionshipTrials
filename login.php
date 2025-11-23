@@ -33,9 +33,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($user && password_verify($password, $user['password'])) {
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['username'] = $user['username'];
+                $_SESSION['full_name'] = $user['full_name']; // Added full_name to session variables
                 $_SESSION['is_admin'] = $user['is_admin'];
                 
-                error_log("[v0] Session set - user_id: " . $_SESSION['user_id'] . ", username: " . $_SESSION['username'] . ", is_admin: " . $_SESSION['is_admin']);
+                error_log("[v0] Session set - user_id: " . $_SESSION['user_id'] . ", username: " . $_SESSION['username'] . ", full_name: " . $_SESSION['full_name'] . ", is_admin: " . $_SESSION['is_admin']);
                 error_log("[v0] Session ID after login: " . session_id());
                 
                 session_write_close();

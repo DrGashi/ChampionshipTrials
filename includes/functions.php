@@ -1,4 +1,5 @@
 <?php
+session_start();
 
 // Check if user is logged in
 function isLoggedIn() {
@@ -16,7 +17,7 @@ function requireLogin() {
     
     if (!isLoggedIn()) {
         error_log("[v0] User not logged in, redirecting to login.php");
-        header('Location: /login.php');
+        header('Location: ../login.php');
         exit();
     }
 }
@@ -28,7 +29,7 @@ function requireAdmin() {
         exit();
     }
     if (!isAdmin()) {
-        header('Location: dashboard.php');
+        header('Location: admin/dashboard.php');
         exit();
     }
 }
